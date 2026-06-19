@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Liar's Bar — Losowanie</title>
+<style>
+  :root{
+    --bg:#12100f;
+    --bg2:#1b1715;
+    --card:#241f1c;
+    --card2:#2e2724;
+    --accent:#e0b341;
+    --accent2:#c8962a;
+    --green:#3fae5a;
+    --green-d:#2e8443;
+    --red:#d23b3b;
+    --red-d:#9e2727;
+    --text:#f4ece0;
+    --muted:#9a8f82;
+    --line:#3a322d;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(circle at 50% 0%, #221c18 0%, var(--bg) 60%);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    padding:18px 16px 40px;
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+  header{text-align:center;margin:8px 0 22px;}
+  .logo{
+    font-size:30px;font-weight:800;letter-spacing:.5px;
+    color:var(--accent);
+    text-shadow:0 2px 12px rgba(224,179,65,.25);
+  }
+  .logo span{color:var(--text);}
+  .tag{color:var(--muted);font-size:13px;margin-top:4px;}
+
+  .panel{
+    background:linear-gradient(180deg,var(--card2),var(--card));
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:22px 20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  h2{margin:0 0 16px;font-size:18px;}
+  .label{font-size:14px;color:var(--muted);margin:18px 0 10px;}
+
+  .count-row{display:flex;gap:10px;justify-content:center;}
+  .count-btn{
+    flex:1;max-width:90px;aspect-ratio:1;
+    border:2px solid var(--line);background:var(--bg2);color:var(--text);
+    border-radius:14px;font-size:26px;font-weight:800;cursor:pointer;
+    transition:.15s;
+  }
+  .count-btn.active{border-color:var(--accent);background:rgba(224,179,65,.14);color:var(--accent);}
+
+  .names{margin-top:6px;display:flex;flex-direction:column;gap:10px;}
+  .name-input{
+    width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);
+    background:var(--bg2);color:var(--text);font-size:16px;
+  }
+  .name-input:focus{outline:none;border-color:var(--accent);}
+
+  .btn{
+    display:block;width:100%;margin-top:22px;padding:16px;border:none;border-radius:14px;
+    font-size:18px;font-weight:800;cursor:pointer;
+    background:linear-gradient(180deg,var(--accent),var(--accent2));color:#1c1407;
+    box-shadow:0 6px 18px rgba(224,179,65,.3);transition:.12s;
+  }
+  .btn:active{transform:translateY(2px);}
+  .btn.ghost{background:transparent;color:var(--muted);box-shadow:none;border:1px solid var(--line);font-weight:600;font-size:15px;}
+
+  /* Game grid */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:520px){.grid{grid-template-columns:1fr;}}
+  .pcard{
+    background:linear-gradient(180deg,var(--card2),var(--card));
+    border:1px solid var(--line);border-radius:16px;padding:16px;
+    display:flex;flex-direction:column;gap:12px;transition:.25s;
+  }
+  .pcard.dead{opacity:.45;filter:grayscale(.7);}
+  .pcard.winner{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 10px 30px rgba(224,179,65,.3);}
+  .pname{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .pname .dot{width:10px;height:10px;border-radius:50%;background:var(--green);}
+  .pcard.dead .pname .dot{background:var(--red);}
+
+  .lots{display:flex;gap:7px;flex-wrap:wrap;}
+  .lot{width:22px;height:22px;border-radius:6px;background:var(--green);box-shadow:inset 0 -2px 0 rgba(0,0,0,.25);}
+  .lot.danger{background:var(--red);}
+  .lot.used{background:var(--bg2);border:1px dashed var(--line);box-shadow:none;}
+  .pmeta{font-size:13px;color:var(--muted);}
+  .pmeta b{color:var(--text);}
+  .draw-btn{
+    margin-top:2px;padding:12px;border:none;border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;
+    background:linear-gradient(180deg,var(--green),var(--green-d));color:#04210d;
+  }
+  .draw-btn:active{transform:translateY(2px);}
+  .draw-btn:disabled{background:var(--bg2);color:var(--muted);cursor:default;}
+  .status-tag{font-size:13px;font-weight:700;text-align:center;padding:8px;border-radius:9px;}
+  .status-tag.out{background:rgba(210,59,59,.15);color:#f08a8a;}
+  .status-tag.safe{background:rgba(63,174,90,.13);color:#8fd9a3;}
+
+  /* Overlay / wheel */
+  .overlay{
+    position:fixed;inset:0;background:rgba(8,6,5,.82);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;padding:20px;z-index:50;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:linear-gradient(180deg,var(--card2),var(--card));
+    border:1px solid var(--line);border-radius:20px;padding:24px 20px;
+    width:100%;max-width:380px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6);
+  }
+  .modal h3{margin:0 0 4px;font-size:20px;}
+  .modal .sub{color:var(--muted);font-size:13px;margin-bottom:18px;}
+  .wheel-box{position:relative;width:260px;height:260px;margin:0 auto 8px;}
+  .pointer{
+    position:absolute;top:-6px;left:50%;transform:translateX(-50%);z-index:3;
+    width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;
+    border-top:24px solid var(--accent);filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));
+  }
+  .wheel{
+    width:100%;height:100%;border-radius:50%;
+    border:8px solid #0d0b0a;box-shadow:0 0 0 4px var(--accent),0 12px 30px rgba(0,0,0,.5);
+    transition:transform 4.2s cubic-bezier(.17,.67,.2,1);
+  }
+  .hub{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:42px;height:42px;border-radius:50%;background:radial-gradient(circle,#3a322d,#13100e);
+    border:3px solid var(--accent);z-index:2;
+  }
+  .result{font-size:22px;font-weight:800;margin:14px 0 2px;min-height:28px;}
+  .result.win{color:var(--green);}
+  .result.lose{color:var(--red);}
+  .result-sub{color:var(--muted);font-size:14px;min-height:18px;}
+
+  .winscreen{text-align:center;padding:30px 20px;}
+  .trophy{font-size:64px;margin-bottom:10px;}
+  .winname{font-size:30px;font-weight:800;color:var(--accent);}
+  .hidden{display:none!important;}
+  .small{font-size:12px;color:var(--muted);text-align:center;margin-top:16px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">LIAR'S <span>BAR</span></div>
+    <div class="tag">Losowanie na żywo — kto wyciągnie czerwony, odpada</div>
+  </header>
+
+  <!-- SETUP -->
+  <div id="setup" class="panel">
+    <h2>Ustawienia gry</h2>
+    <div class="label">Liczba graczy</div>
+    <div class="count-row" id="countRow"></div>
+    <div class="label">Imiona graczy (opcjonalnie)</div>
+    <div class="names" id="names"></div>
+    <button class="btn" id="startBtn">Rozpocznij grę</button>
+    <div class="small">Każdy gracz ma 6 losów: 5 zielonych (bezpiecznych) i 1 czerwony.<br>Gdy ktoś Cię sprawdzi — kręcisz kołem. Zielony = grasz dalej (los znika).<br>Czerwony = odpadasz. Wygrywa ostatni gracz.</div>
+  </div>
+
+  <!-- GAME -->
+  <div id="game" class="hidden">
+    <div id="aliveInfo" class="label" style="text-align:center;margin-bottom:14px;"></div>
+    <div class="grid" id="grid"></div>
+    <button class="btn ghost" id="resetBtn" style="margin-top:24px;">Nowa gra</button>
+  </div>
+
+  <!-- WIN -->
+  <div id="win" class="panel hidden">
+    <div class="winscreen">
+      <div class="trophy">🏆</div>
+      <div class="label" style="margin:0;">Zwycięzca</div>
+      <div class="winname" id="winName"></div>
+    </div>
+    <button class="btn" id="againBtn">Zagraj ponownie</button>
+  </div>
+</div>
+
+<!-- WHEEL OVERLAY -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="wheelTitle">Losowanie</h3>
+    <div class="sub" id="wheelSub"></div>
+    <div class="wheel-box">
+      <div class="pointer"></div>
+      <svg class="wheel" id="wheel" viewBox="0 0 100 100"></svg>
+      <div class="hub"></div>
+    </div>
+    <div class="result" id="result"></div>
+    <div class="result-sub" id="resultSub"></div>
+    <button class="btn hidden" id="spinBtn">Zakręć!</button>
+    <button class="btn hidden" id="closeBtn">Dalej</button>
+  </div>
+</div>
+
+<script>
+const GREEN="#3fae5a", GREEN_D="#2e8443", RED="#d23b3b", RED_D="#9e2727";
+let players=[], playerCount=2, current=null, spinning=false;
+
+/* ---------- Setup screen ---------- */
+const countRow=document.getElementById('countRow');
+[2,3,4].forEach(n=>{
+  const b=document.createElement('button');
+  b.className='count-btn'+(n===2?' active':'');
+  b.textContent=n; b.dataset.n=n;
+  b.onclick=()=>{playerCount=n;
+    [...countRow.children].forEach(c=>c.classList.toggle('active',+c.dataset.n===n));
+    renderNames();};
+  countRow.appendChild(b);
+});
+function renderNames(){
+  const box=document.getElementById('names'); box.innerHTML='';
+  for(let i=0;i<playerCount;i++){
+    const inp=document.createElement('input');
+    inp.className='name-input'; inp.placeholder='Gracz '+(i+1);
+    inp.maxLength=16; inp.id='nm'+i;
+    box.appendChild(inp);
+  }
+}
+renderNames();
+
+document.getElementById('startBtn').onclick=()=>{
+  players=[];
+  for(let i=0;i<playerCount;i++){
+    const v=document.getElementById('nm'+i).value.trim();
+    players.push({name:v||('Gracz '+(i+1)), green:5, alive:true});
+  }
+  document.getElementById('setup').classList.add('hidden');
+  document.getElementById('win').classList.add('hidden');
+  document.getElementById('game').classList.remove('hidden');
+  renderGame();
+};
+document.getElementById('resetBtn').onclick=backToSetup;
+document.getElementById('againBtn').onclick=backToSetup;
+function backToSetup(){
+  document.getElementById('game').classList.add('hidden');
+  document.getElementById('win').classList.add('hidden');
+  document.getElementById('setup').classList.remove('hidden');
+}
+
+/* ---------- Game render ---------- */
+function aliveCount(){return players.filter(p=>p.alive).length;}
+function renderGame(){
+  const grid=document.getElementById('grid'); grid.innerHTML='';
+  document.getElementById('aliveInfo').textContent='W grze: '+aliveCount()+' / '+players.length+' graczy';
+  players.forEach((p,idx)=>{
+    const card=document.createElement('div');
+    card.className='pcard'+(p.alive?'':' dead');
+    const total=p.green+1;          // remaining lots while alive
+    // header
+    let lotsHtml='';
+    for(let i=0;i<p.green;i++) lotsHtml+='<div class="lot"></div>';
+    lotsHtml+='<div class="lot danger"></div>';
+    for(let i=0;i<(5-p.green);i++) lotsHtml+='<div class="lot used"></div>';
+
+    card.innerHTML=
+      '<div class="pname"><span class="dot"></span>'+escapeHtml(p.name)+'</div>'+
+      '<div class="lots">'+lotsHtml+'</div>';
+
+    if(p.alive){
+      const meta=document.createElement('div');
+      meta.className='pmeta';
+      meta.innerHTML='Pozostało <b>'+total+'</b> losów &middot; '+p.green+
+        ' zielonych, 1 czerwony<br>Szansa na czerwony: <b>'+pct(1/total)+'</b>';
+      card.appendChild(meta);
+      const btn=document.createElement('button');
+      btn.className='draw-btn';
+      btn.textContent='🎯 Losuj';
+      btn.onclick=()=>openWheel(idx);
+      card.appendChild(btn);
+    }else{
+      const tag=document.createElement('div');
+      tag.className='status-tag out';
+      tag.textContent='💀 Odpadł';
+      card.appendChild(tag);
+    }
+    grid.appendChild(card);
+  });
+}
+function pct(x){return Math.round(x*100)+'%';}
+function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* ---------- Wheel ---------- */
+const overlay=document.getElementById('overlay');
+const wheelEl=document.getElementById('wheel');
+const spinBtn=document.getElementById('spinBtn');
+const closeBtn=document.getElementById('closeBtn');
+let segColors=[], redIndex=0, currentRotation=0;
+
+function openWheel(idx){
+  current=idx;
+  const p=players[idx];
+  const total=p.green+1;
+  document.getElementById('wheelTitle').textContent=p.name+' losuje';
+  document.getElementById('wheelSub').textContent=total+' losów na kole · '+p.green+' zielonych, 1 czerwony';
+  document.getElementById('result').textContent='';
+  document.getElementById('result').className='result';
+  document.getElementById('resultSub').textContent='';
+  currentRotation=0;
+  wheelEl.style.transition='none';
+  wheelEl.style.transform='rotate(0deg)';
+  buildWheel(p.green);
+  spinBtn.classList.remove('hidden');
+  closeBtn.classList.add('hidden');
+  overlay.classList.add('show');
+}
+
+function buildWheel(green){
+  const total=green+1;
+  // random arrangement: pick a random slot for the red segment
+  redIndex=Math.floor(Math.random()*total);
+  segColors=[];
+  for(let i=0;i<total;i++) segColors.push(i===redIndex?'red':'green');
+  const seg=360/total;
+  let svg='';
+  for(let i=0;i<total;i++){
+    const a0=i*seg, a1=(i+1)*seg;
+    const isRed=(i===redIndex);
+    const fill=isRed?RED:GREEN;
+    const stroke=isRed?RED_D:GREEN_D;
+    svg+=sector(50,50,48,a0,a1,fill,stroke);
+  }
+  wheelEl.innerHTML=svg;
+}
+// angles measured clockwise from top (12 o'clock)
+function sector(cx,cy,r,a0,a1,fill,stroke){
+  if(a1-a0>=359.999){ // full circle
+    return '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="0.8"/>';
+  }
+  const p0=pt(cx,cy,r,a0), p1=pt(cx,cy,r,a1);
+  const large=(a1-a0)>180?1:0;
+  return '<path d="M'+cx+','+cy+' L'+p0.x+','+p0.y+' A'+r+','+r+' 0 '+large+' 1 '+p1.x+','+p1.y+' Z" fill="'+fill+'" stroke="'+stroke+'" stroke-width="0.8" stroke-linejoin="round"/>';
+}
+function pt(cx,cy,r,angDeg){
+  const a=(angDeg-90)*Math.PI/180; // -90 so 0deg points up
+  return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)};
+}
+
+spinBtn.onclick=()=>{
+  if(spinning) return;
+  spinning=true;
+  spinBtn.disabled=true;
+  const p=players[current];
+  const total=p.green+1;
+  const seg=360/total;
+  // choose outcome by actual probability: pick a random segment
+  const landed=Math.floor(Math.random()*total);
+  const isRed=(landed===redIndex);
+  // rotate so that center of 'landed' segment is under the top pointer
+  const center=(landed+0.5)*seg;          // clockwise angle from top
+  const jitter=(Math.random()-0.5)*seg*0.5;
+  const target=360*6 + (360-center) - jitter;
+  currentRotation=target;
+  wheelEl.style.transition='transform 4.2s cubic-bezier(.17,.67,.2,1)';
+  requestAnimationFrame(()=>{ wheelEl.style.transform='rotate('+target+'deg)'; });
+
+  setTimeout(()=>{
+    const res=document.getElementById('result');
+    const sub=document.getElementById('resultSub');
+    if(isRed){
+      res.textContent='🔴 CZERWONY — odpadasz!';
+      res.className='result lose';
+      sub.textContent=p.name+' kończy grę.';
+      p.alive=false;
+    }else{
+      res.textContent='🟢 ZIELONY — grasz dalej!';
+      res.className='result win';
+      p.green-=1;
+      sub.textContent='Zostało '+(p.green+1)+' losów.';
+    }
+    spinBtn.classList.add('hidden');
+    closeBtn.classList.remove('hidden');
+    spinning=false;
+    spinBtn.disabled=false;
+  },4350);
+};
+
+closeBtn.onclick=()=>{
+  overlay.classList.remove('show');
+  renderGame();
+  if(aliveCount()<=1){
+    const winner=players.find(p=>p.alive);
+    setTimeout(()=>showWin(winner),250);
+  }
+};
+
+function showWin(winner){
+  document.getElementById('game').classList.add('hidden');
+  document.getElementById('win').classList.remove('hidden');
+  document.getElementById('winName').textContent=winner?winner.name:'—';
+}
+</script>
+</body>
+</html>
