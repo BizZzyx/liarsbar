@@ -207,7 +207,7 @@
     <div class="result" id="result"></div>
     <div class="result-sub" id="resultSub"></div>
     <button class="btn hidden" id="spinBtn">Zakręć!</button>
-    <button class="btn ghost hidden" id="cancelBtn">← Anuluj (kliknięto przez przypadek)</button>
+    <button class="btn ghost hidden" id="cancelBtn">Cofnij</button>
     <button class="btn hidden" id="closeBtn">Dalej</button>
   </div>
 </div>
@@ -357,11 +357,63 @@ function pt(cx,cy,r,angDeg){
   return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)};
 }
 
+/* ---------- Sound (Web Audio, no external files) ---------- */
+let audioCtx=null;
+function ensureAudio(){
+  try{
+    if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null; audioCtx=new AC(); }
+    if(audioCtx.state==='suspended') audioCtx.resume();
+  }catch(e){ return null; }
+  return audioCtx;
+}
+function tick(when){
+  const c=audioCtx; if(!c) return;
+  const o=c.createOscillator(), g=c.createGain();
+  o.type='square'; o.frequency.value=1050+Math.random()*250;
+  g.gain.setValueAtTime(0.0001,when);
+  g.gain.exponentialRampToValueAtTime(0.18,when+0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001,when+0.03);
+  o.connect(g).connect(c.destination);
+  o.start(when); o.stop(when+0.05);
+}
+function playSpinTicks(duration){
+  const c=ensureAudio(); if(!c) return;
+  const start=c.currentTime; let t=0, interval=0.045;
+  while(t<duration-0.05){ tick(start+t); t+=interval; interval*=1.07; }
+}
+function playResult(win){
+  const c=ensureAudio(); if(!c) return;
+  const now=c.currentTime;
+  if(win){
+    [660,990].forEach((f,i)=>{
+      const o=c.createOscillator(), g=c.createGain();
+      o.type='triangle'; o.frequency.value=f;
+      const s=now+i*0.12;
+      g.gain.setValueAtTime(0.0001,s);
+      g.gain.exponentialRampToValueAtTime(0.3,s+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,s+0.28);
+      o.connect(g).connect(c.destination);
+      o.start(s); o.stop(s+0.32);
+    });
+  }else{
+    const o=c.createOscillator(), g=c.createGain();
+    o.type='sawtooth';
+    o.frequency.setValueAtTime(210,now);
+    o.frequency.exponentialRampToValueAtTime(70,now+0.55);
+    g.gain.setValueAtTime(0.0001,now);
+    g.gain.exponentialRampToValueAtTime(0.35,now+0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001,now+0.62);
+    o.connect(g).connect(c.destination);
+    o.start(now); o.stop(now+0.66);
+  }
+}
+
 spinBtn.onclick=()=>{
   if(spinning) return;
   spinning=true;
   spinBtn.disabled=true;
   cancelBtn.classList.add('hidden');
+  playSpinTicks(4.2);
   const p=players[current];
   const total=p.green+1;
   const seg=360/total;
@@ -379,6 +431,7 @@ spinBtn.onclick=()=>{
   setTimeout(()=>{
     const res=document.getElementById('result');
     const sub=document.getElementById('resultSub');
+    playResult(!isRed);
     if(isRed){
       res.textContent='🔴 CZERWONY — odpadasz!';
       res.className='result lose';
